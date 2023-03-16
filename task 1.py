@@ -22,8 +22,6 @@ while True:
 #1.2
 from machine import Pin
 import time
-from machine import Pin
-import time
 
 while True:
     D1 = machine.Pin(22, machine.Pin.OUT)
