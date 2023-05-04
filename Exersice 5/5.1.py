@@ -1,4 +1,3 @@
-#task 5
 import network
 from time import sleep
 import machine
@@ -7,7 +6,6 @@ import ssd1306
 
 ssid = 'KME661Group5'
 password = '735Q4FhHM6daMWz'
-
 
 def connect():
     oled_dcl = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
@@ -21,7 +19,7 @@ def connect():
         print('Waiting for connection...')
         sleep(1)
     ip = wlan.ifconfig()[0]
-    print(f'Connected on {"192.168.105.182"}')
+    print(f'Connected on {ip}')
     oled.fill(0)
     oled.text("IP Address:", 0, 0)
     oled.text(ip, 0, 10)
