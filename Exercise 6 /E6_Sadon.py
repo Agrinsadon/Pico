@@ -4,16 +4,16 @@ from time import sleep
 from machine import Pin, I2C
 from ssd1306 import SSD1306_I2C
 
-def connect(ssid, pw):
+def connect():
     #Connect to WLAN
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
-    wlan.connect(ssid, pw)
+    wlan.connect(ssid, password)
     while wlan.isconnected() == False:
         print('Waiting for connection...')
         sleep(1)
     ip = wlan.ifconfig()[0]
-    print(f'Connected, IP address: {ip}')
+    print(f'Connected on {ip}')
 
 ssid = 'KME661Group5'
 password = '735Q4FhHM6daMWz'
@@ -21,7 +21,11 @@ url = 'http://194.110.231.243:8000'
 oled_dcl = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
 oled = SSD1306_I2C(128, 64, oled_dcl)
 
-connect(ssid, password)
+oled.fill(0)
+oled.text("Getting data..", 10, 30)
+oled.show()
+
+connect()
 
 APIKEY = "pbZRUi49X48I56oL1Lq8y8NDjq6rPfzX3AQeNo3a"
 CLIENT_ID = "3pjgjdmamlj759te85icf0lucv"
