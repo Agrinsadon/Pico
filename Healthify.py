@@ -146,18 +146,16 @@ def heart():
             self.data_fifo = Fifo(750)  # initialize a FIFO buffer with a capacity of 900
             self.sensor_timer = Piotimer(mode=Piotimer.PERIODIC, freq=250,
                                          callback=self.read_sensor)  # initialize a hardware timer with a frequency of 250 Hz, in periodic mode, and assign the read_sensor() method as its callback function
-            self.window_size = 10  # set the window size to 10
-            self.min_limit = 36000  # set the minimum value for the average sensor reading to be considered a peak
-            self.max_limit = 37000  # set the maximum value for the average sensor reading to be considered a peak
-            self.sensor_values = []  # create an empty list to store the sensor readings
+            self.window_size = 10
+            self.min_limit = 36000
+            self.max_limit = 37000
+            self.sensor_values = []
             self.heart_rate = 0  # initialize the heart rate to 0
             self.peak_times = []  # create an empty list to store the time stamps of the detected peaks
 
-        # define the read_sensor method that will be called by the hardware timer
-        def read_sensor(self, timer_id):
-            self.data_fifo.put(self.analog_in.read_u16())  # read the sensor value and put it in the FIFO buffer
 
-        # define the monitor method that will continuously monitor the sensor readings
+        def read_sensor(self, timer_id):
+            self.data_fifo.put(self.analog_in.read_u16())
         def monitor(self):
             testi = True
 
