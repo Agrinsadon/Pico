@@ -11,7 +11,6 @@ def connect():
     oled_dcl = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
     oled = ssd1306.SSD1306_I2C(128, 64, oled_dcl)
 
-    #Connect to WLAN
     wlan = network.WLAN(network.STA_IF)
     wlan.active(True)
     wlan.connect(ssid, password)
