@@ -6,23 +6,22 @@ import time
 import urequests as requests
 import network
 from machine import ADC, Pin, I2C
-from fifo import Fifo  # module for data storage
-from piotimer import Piotimer  # module for hardware timer
+from fifo import Fifo
+from piotimer import Piotimer
 
 button1 = Pin(8, Pin.IN, Pin.PULL_UP)
 
-# Set the width and height of the OLED display
+# the width and height of the OLED display
 width = 128
 height = 64
 
-# Set initial values for menu display
+# Initial values for menu display
 line = 0
 highlight = 1
 shift = 0
 list_length = 1
 total_lines = 2
 
-# Initialize I2C connection to OLED display
 oled_dcl = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
 oled = SSD1306_I2C(128, 64, oled_dcl)
 
@@ -61,20 +60,15 @@ REDIRECT_URI = "https://analysis.kubioscloud.com/v1/portal/login"
 connect()
 intervals = []
 
-
 def show_menu(menu):
-    # global değişkenleri getiriyoruz.
     global line, highlight, shift, list_length
 
-    # menü değişkenleri
     item = 1
     line = 1
     line_height = 10
 
-    # ekranı temizle
     oled.fill_rect(0, 0, width, height, 0)
 
-    # Shift the list of files so that it shows on the display
     list_length = len(menu)
     short_list = menu[shift:shift + total_lines]
 
@@ -92,7 +86,7 @@ def show_menu(menu):
 
 
 def test():
-    if len(intervals) < 21:
+    if len(intervals) < 19: # Get 20 heart rate data or more to get the data to kubious cloud
         oled.fill(0)
         oled.text(f'No Data', 34, 30)
         oled.show()
@@ -144,8 +138,7 @@ def heart():
         def __init__(self):
             self.analog_in = ADC(26)  # initialize an analog input on pin 26
             self.data_fifo = Fifo(750)  # initialize a FIFO buffer with a capacity of 900
-            self.sensor_timer = Piotimer(mode=Piotimer.PERIODIC, freq=250,
-                                         callback=self.read_sensor)  # initialize a hardware timer with a frequency of 250 Hz, in periodic mode, and assign the read_sensor() method as its callback function
+            self.sensor_timer = Piotimer(mode=Piotimer.PERIODIC, freq=250, callback=self.read_sensor)  # initialize a hardware timer with a frequency of 250 Hz, in periodic mode, and assign the read_sensor() method as its callback function
             self.window_size = 10
             self.min_limit = 36000
             self.max_limit = 37000
@@ -214,7 +207,6 @@ def heart():
     heart_rate_monitor.monitor()
 
 
-# Menüde gösterilecek seçenekler.
 file_list = ["Heart Rate", "Kubios Cloud"]
 show_menu(file_list)
 
@@ -229,8 +221,6 @@ while True:
                 else:
                     if shift > 0:
                         shift -= 1
-
-                        # Sağa dönerse
             else:
                 if highlight < total_lines:
                     highlight += 1
@@ -249,7 +239,6 @@ while True:
         button_down = True
         test()
 
-    # Tuşu debounce etmek için
     if button1.value() == 0:
         button_down = False
         show_menu(file_list)
