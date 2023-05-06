@@ -1,4 +1,3 @@
-import machine
 import utime as time
 import micropython
 from machine import Pin, PWM
@@ -50,9 +49,13 @@ class Rotary:
             micropython.schedule(self.call_handlers, Rotary.SW_RELEASE)
         else:
             micropython.schedule(self.call_handlers, Rotary.SW_PRESS)
+            return
 
     def add_handler(self, handler):
         self.handlers.append(handler)
+
+    def remove_handler(self, handler):
+        self.handlers.remove(handler)
 
     def call_handlers(self, type):
         for handler in self.handlers:
@@ -72,60 +75,12 @@ shift = 0
 list_length = 0
 total_lines = 3
 
-i2c_1 = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
-oled = SSD1306_I2C(128, 64, i2c_1)
-
 button_pin = Pin(12, Pin.IN, Pin.PULL_UP)
 direction_pin = Pin(11, Pin.IN, Pin.PULL_UP)
 step_pin = Pin(10, Pin.IN, Pin.PULL_UP)
 
 previous_value = True
 button_down = False
-
-
-def leds(number, pwm):
-    oled.fill(0)
-    oled.text(f"Rotate", 37, 22)
-    oled.text(f"Clockwise", 25, 38)
-    oled.show()
-    pwm = PWM(Pin(int(pwm)))
-
-    def brightness(duty):
-        value = duty * 100
-        pwm.duty_u16(value)
-        print(value)
-
-    def oledtest(luku):
-        oled.fill(0)
-        oled.text(f"LED {number}", 48, 10)
-        oled.hline(15, 30, luku, 1)
-        oled.text(f"{luku}%", 50, 40)
-        oled.show()
-        brightness(luku)
-
-    def rotary_changed(change):
-        global val
-        duty = 1
-        if change == Rotary.ROT_CW and val < 10:
-            val = val + 1
-            print(val)
-            valed = val * 10
-            duty = duty * 100
-            oledtest(valed)
-        elif change == Rotary.ROT_CCW and val > 0:
-            val = val - 1
-            valed = val * 10
-            print(val)
-            oledtest(valed)
-        elif change == Rotary.SW_PRESS:
-            return
-        elif change == Rotary.SW_RELEASE:
-            return
-
-    rotary.add_handler(rotary_changed)
-
-    while True:
-        time.sleep(0.1)
 
 
 def show_menu(menu):
@@ -153,55 +108,111 @@ def show_menu(menu):
     oled.show()
 
 
+def main():
+    global previous_value, highlight, shift, button_pin, button_down
+    button_down = False
+    while True:
+        print(button_down)
+        if previous_value != step_pin.value():
+            if step_pin.value() == False:
+
+                if direction_pin.value() == False:
+                    if highlight > 1:
+                        highlight -= 1
+                    else:
+                        if shift > 0:
+                            shift -= 1
+
+                else:
+                    if highlight < total_lines:
+                        highlight += 1
+                    else:
+                        if shift + total_lines < list_length:
+                            shift += 1
+
+                show_menu(file_list)
+            previous_value = step_pin.value()
+
+        time.sleep(.1)
+        if highlight == 1 and button_pin.value() == False and not button_down:
+            button_down = True
+            oled.fill(0)
+            oled.show()
+            leds(1, 20)
+            break
+        elif highlight == 2 and button_pin.value() == False and not button_down:
+            button_down = True
+            oled.fill(0)
+            oled.show()
+            leds(2, 21)
+            break
+        elif highlight == 3 and button_pin.value() == False and not button_down:
+            button_down = True
+            oled.fill(0)
+            oled.show()
+            leds(3, 22)
+            break
+
+        if button1.value() == 0:
+            button_down = False
+            show_menu(file_list)
+
+        if button_pin.value() == False and not button_down:
+            button_down = True
+
+
+def leds(number, pwm):
+    global button_down
+    hala = 1
+    oled.fill(0)
+    oled.text(f"Rotate", 37, 22)
+    oled.text(f"Clockwise", 25, 38)
+    oled.show()
+    pwm = PWM(Pin(int(pwm)))
+
+    def brightness(duty):
+        value = duty * 100
+        pwm.duty_u16(value)
+        print(value)
+
+    def oledtest(luku):
+        oled.fill(0)
+        oled.text(f"LED {number}", 48, 10)
+        oled.hline(15, 30, luku, 1)
+        oled.text(f"{luku}%", 50, 40)
+        oled.show()
+        brightness(luku)
+
+    def rotary_changed(change):
+        global val
+        nonlocal hala
+        duty = 1
+        if change == Rotary.ROT_CW and val < 10:
+            val = val + 1
+            valed = val * 10
+            duty = duty * 100
+            oledtest(valed)
+        elif change == Rotary.ROT_CCW and val > 0:
+            val = val - 1
+            valed = val * 10
+            oledtest(valed)
+        elif change == Rotary.SW_PRESS and hala == 1:
+            hala = 2
+            button_down = False
+            show_menu(file_list)
+            main()
+            rotary.remove_handler(rotary_changed)
+            return
+        elif change == Rotary.SW_RELEASE:
+            return
+
+    rotary.add_handler(rotary_changed)
+    return
+
+    while True:
+        time.sleep(0.1)
+
+
 file_list = ["Led 1", "Led 2", "Led 3"]
 show_menu(file_list)
-
-while True:
-    if previous_value != step_pin.value():
-        if step_pin.value() == False:
-
-            if direction_pin.value() == False:
-                if highlight > 1:
-                    highlight -= 1
-                else:
-                    if shift > 0:
-                        shift -= 1
-            else:
-                if highlight < total_lines:
-                    highlight += 1
-                else:
-                    if shift + total_lines < list_length:
-                        shift += 1
-
-            show_menu(file_list)
-        previous_value = step_pin.value()
-
-    time.sleep(.1)
-    if highlight == 1 and button_pin.value() == False and not button_down:
-        button_down = True
-        oled.fill(0)
-        oled.show()
-        leds(1, 20)
-    elif highlight == 2 and button_pin.value() == False and not button_down:
-        button_down = True
-        oled.fill(0)
-        oled.show()
-        leds(2, 21)
-    elif highlight == 3 and button_pin.value() == False and not button_down:
-        button_down = True
-        oled.fill(0)
-        oled.show()
-        leds(3, 22)
-
-    if button1.value() == 0:
-        button_down = False
-        print("Hello")
-        show_menu(file_list)
-
-    if button_pin.value() == False and not button_down:
-        button_down = True
-
-
-def back():
-    if button_pin.value() == True and button_down:
-        button_down = False
+main()
