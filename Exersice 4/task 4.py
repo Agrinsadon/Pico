@@ -20,7 +20,7 @@ class Rotary:
     SW_PRESS = 4
     SW_RELEASE = 8
 
-    def _init_(self, dt, clk, sw):
+    def __init__(self, dt, clk, sw):
         self.dt_pin = Pin(dt, Pin.IN, Pin.PULL_DOWN)
         self.clk_pin = Pin(clk, Pin.IN, Pin.PULL_DOWN)
         self.sw_pin = Pin(sw, Pin.IN, Pin.PULL_DOWN)
