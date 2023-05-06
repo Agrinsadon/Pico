@@ -1,52 +1,145 @@
-from machine import Pin, I2C
-from ssd1306 import SSD1306_I2C
-from os import listdir
+import machine
+import utime as time
+import micropython
+from machine import Pin, PWM
 from time import sleep
-import ssd1306
+import time
+from ssd1306 import SSD1306_I2C
 
-# Set the width and height of the OLED display
+i2c_1 = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
+oled = SSD1306_I2C(128, 64, i2c_1)
+
+button1 = Pin(8, Pin.IN, Pin.PULL_UP)
+
+pwm = PWM(Pin(20))
+
+
+class Rotary:
+    ROT_CW = 1
+    ROT_CCW = 2
+    SW_PRESS = 4
+    SW_RELEASE = 8
+
+    def _init_(self, dt, clk, sw):
+        self.dt_pin = Pin(dt, Pin.IN, Pin.PULL_DOWN)
+        self.clk_pin = Pin(clk, Pin.IN, Pin.PULL_DOWN)
+        self.sw_pin = Pin(sw, Pin.IN, Pin.PULL_DOWN)
+        self.last_status = (self.dt_pin.value() << 1) | self.clk_pin.value()
+        self.dt_pin.irq(handler=self.rotary_change, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)
+        self.clk_pin.irq(handler=self.rotary_change, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)
+        self.sw_pin.irq(handler=self.switch_detect, trigger=Pin.IRQ_FALLING | Pin.IRQ_RISING)
+        self.handlers = []
+        self.last_button_status = self.sw_pin.value()
+
+    def rotary_change(self, pin):
+        new_status = (self.dt_pin.value() << 1) | self.clk_pin.value()
+        if new_status == self.last_status:
+            return
+        transition = (self.last_status << 2) | new_status
+        if transition == 0b1110:
+            micropython.schedule(self.call_handlers, Rotary.ROT_CW)
+        elif transition == 0b1101:
+            micropython.schedule(self.call_handlers, Rotary.ROT_CCW)
+        self.last_status = new_status
+
+    def switch_detect(self, pin):
+        if self.last_button_status == self.sw_pin.value():
+            return
+        self.last_button_status = self.sw_pin.value()
+        if self.sw_pin.value():
+            micropython.schedule(self.call_handlers, Rotary.SW_RELEASE)
+        else:
+            micropython.schedule(self.call_handlers, Rotary.SW_PRESS)
+
+    def add_handler(self, handler):
+        self.handlers.append(handler)
+
+    def call_handlers(self, type):
+        for handler in self.handlers:
+            handler(type)
+
+
+rotary = Rotary(11, 10, 12)
+val = 0
+pwm.freq(1000)
+
 width = 128
 height = 64
 
-# Set initial values for menu display
 line = 1
 highlight = 1
 shift = 0
 list_length = 0
-total_lines = 2
+total_lines = 3
 
-# Initialize I2C connection to OLED display
 i2c_1 = machine.I2C(1, scl=machine.Pin("GP15"), sda=machine.Pin("GP14"))
-oled = ssd1306.SSD1306_I2C(128, 64, i2c_1)
+oled = SSD1306_I2C(128, 64, i2c_1)
 
-# Define pins for rotary encoder
 button_pin = Pin(12, Pin.IN, Pin.PULL_UP)
 direction_pin = Pin(11, Pin.IN, Pin.PULL_UP)
 step_pin = Pin(10, Pin.IN, Pin.PULL_UP)
 
-# Initialize variables to track rotary encoder state
 previous_value = True
 button_down = False
-button_press_time = 0
+
+
+def leds(number, pwm):
+    oled.fill(0)
+    oled.text(f"Rotate", 37, 22)
+    oled.text(f"Clockwise", 25, 38)
+    oled.show()
+    pwm = PWM(Pin(int(pwm)))
+
+    def brightness(duty):
+        value = duty * 100
+        pwm.duty_u16(value)
+        print(value)
+
+    def oledtest(luku):
+        oled.fill(0)
+        oled.text(f"LED {number}", 48, 10)
+        oled.hline(15, 30, luku, 1)
+        oled.text(f"{luku}%", 50, 40)
+        oled.show()
+        brightness(luku)
+
+    def rotary_changed(change):
+        global val
+        duty = 1
+        if change == Rotary.ROT_CW and val < 10:
+            val = val + 1
+            print(val)
+            valed = val * 10
+            duty = duty * 100
+            oledtest(valed)
+        elif change == Rotary.ROT_CCW and val > 0:
+            val = val - 1
+            valed = val * 10
+            print(val)
+            oledtest(valed)
+        elif change == Rotary.SW_PRESS:
+            return
+        elif change == Rotary.SW_RELEASE:
+            return
+
+    rotary.add_handler(rotary_changed)
+
+    while True:
+        time.sleep(0.1)
 
 
 def show_menu(menu):
-    # Bring in global variables
     global line, highlight, shift, list_length
 
-    # Initialize variables for displaying menu
     item = 1
     line = 1
     line_height = 10
 
-    # Clear the OLED display
     oled.fill_rect(0, 0, width, height, 0)
 
-    # Shift the list of files so that it shows on the display
     list_length = len(menu)
     short_list = menu[shift:shift + total_lines]
 
-    # Iterate through the list of files and display each one
     for item in short_list:
         if highlight == line:
             oled.fill_rect(0, (line - 1) * line_height, width, line_height, 1)
@@ -60,98 +153,19 @@ def show_menu(menu):
     oled.show()
 
 
-def selection():
-    button = Pin(9, Pin.IN, Pin.PULL_UP)
-    button1 = Pin(8, Pin.IN, Pin.PULL_UP)
-    button2 = Pin(7, Pin.IN, Pin.PULL_UP)
+file_list = ["Led 1", "Led 2", "Led 3"]
+show_menu(file_list)
 
-    led = Pin(20, Pin.OUT)
-    led1 = Pin(21, Pin.OUT)
-    led2 = Pin(22, Pin.OUT)
-
-    State = 0
-    State1 = 0
-    State2 = 0
-
-    emergency = Pin("GP12", mode=Pin.IN, pull=Pin.PULL_UP)
-    i2c_1 = I2C(1, scl=Pin("GP15"), sda=Pin("GP14"))
-    oled = ssd1306.SSD1306_I2C(128, 64, i2c_1)
-
-    def screen():
-        oled.fill(0)
-        oled.text("LED:" + ("ON" if led.value() else "OFF"), 0, 10)
-        oled.text("LED:" + ("ON" if led1.value() else "OFF"), 0, 20)
-        oled.text("LED:" + ("ON" if led2.value() else "OFF"), 0, 30)
-        oled.show()
-
-    def emergency_handler(pin):
-        led.off()
-        led1.off()
-        led2.off()
-        screen()
-
-    emergency.irq(handler=emergency_handler, trigger=Pin.IRQ_FALLING)
-
-    while True:
-        if button.value() == 0:
-            if State == 0:
-                led.value(1)
-                # sleep_ms = 100
-                screen()
-                while button.value() == 0:
-                    State = 1
-            else:
-                led.value(0)
-                # sleep_ms = 100
-                screen()
-                while button.value() == 0:
-                    State = 0
-
-        elif button1.value() == 0:
-            if State1 == 0:
-                led1.value(1)
-                # sleep_ms = 100
-                screen()
-                while button1.value() == 0:
-                    State1 = 1
-            else:
-                led1.value(0)
-                # sleep_ms = 100
-                screen()
-                while button1.value() == 0:
-                    State1 = 0
-        elif button2.value() == 0:
-            if State2 == 0:
-                led2.value(1)
-                # sleep_ms = 100
-                screen()
-                while button2.value() == 0:
-                    State2 = 1
-            else:
-                led2.value(0)
-                # sleep_ms = 100
-                screen()
-                while button2.value() == 0:
-                    State2 = 0
-
-
-# List of files to display in the menu
-file_list = ["Selection", "Brightness"]
-
-# Main loop to check rotary encoder and button state
 while True:
     if previous_value != step_pin.value():
         if step_pin.value() == False:
 
-            # If the rotary encoder is turned left
             if direction_pin.value() == False:
                 if highlight > 1:
                     highlight -= 1
                 else:
                     if shift > 0:
                         shift -= 1
-
-                        # If the rotary encoder is turned right
             else:
                 if highlight < total_lines:
                     highlight += 1
@@ -159,19 +173,35 @@ while True:
                     if shift + total_lines < list_length:
                         shift += 1
 
-            # Update the menu display
             show_menu(file_list)
         previous_value = step_pin.value()
 
-        # If the button is pressed
+    time.sleep(.1)
+    if highlight == 1 and button_pin.value() == False and not button_down:
+        button_down = True
+        oled.fill(0)
+        oled.show()
+        leds(1, 20)
+    elif highlight == 2 and button_pin.value() == False and not button_down:
+        button_down = True
+        oled.fill(0)
+        oled.show()
+        leds(2, 21)
+    elif highlight == 3 and button_pin.value() == False and not button_down:
+        button_down = True
+        oled.fill(0)
+        oled.show()
+        leds(3, 22)
+
+    if button1.value() == 0:
+        button_down = False
+        print("Hello")
+        show_menu(file_list)
+
     if button_pin.value() == False and not button_down:
         button_down = True
-        print("Moi")
-        oled.fill(0)
-        selection()
-        oled.show()
 
-    # Debounce the button
+
+def back():
     if button_pin.value() == True and button_down:
         button_down = False
-        print("Hei")
